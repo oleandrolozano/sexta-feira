@@ -1,6 +1,7 @@
 import os
 import configparser
 import sys, win32com.client
+import requests
 
 shell = win32com.client.Dispatch("WScript.Shell")
 
@@ -15,6 +16,8 @@ def criarPastaRotina():
         os.makedirs(pastaLog)
     if not os.path.exists(pastaCodigos):
         os.makedirs(pastaCodigos)
+    if not os.path.exists(pastaTemp):
+        os.makedirs(pastaTemp)
 
 def criarArquivoConfiguracao():
     nomeArquivo = os.path.expanduser('~') + "\\Documents\\rotina\\config.ini"
@@ -35,14 +38,17 @@ def lerArquivoConfig():
     settings._interpolation = configparser.ExtendedInterpolation()
     settings.read(nomeArquivo)
     settings.sections()
-    age = settings.get('Person', 'age')
+    age = settings.get('p_emissao', 'local_arquivo')
     print(age)
 
 def criarArquivoModeloVBS():
     modeloScript = os.path.expanduser('~') + "\\Documents\\rotina\\temp\\modeloScritp.vbs"
-    f = open(modeloScript, "w")
-    f.write("Now the file has more content!")
-    f.close()
+    if not os.path.exists(modeloScript):
+        url = "https://raw.githubusercontent.com/condkai/sexta-feira/master/modeloScritp.vbs"
+        r = requests.get(url)
+        f = open(modeloScript, "w")
+        f.write(r.text)
+        f.close()
 
 def executarProgramaSAS(localProgramaSAS):
     modeloScript = os.path.expanduser('~') + "\\Documents\\rotina\\temp\\modeloScritp.vbs"
@@ -53,7 +59,7 @@ def executarProgramaSAS(localProgramaSAS):
     except OSError as e:  ## if failed, report it back to the user ##
         print ("Error: %s - %s." % (e.filename, e.strerror))
 
-    # Read in the file C:\Users\llozano\Desktop
+    # Read in the file
     with open(modeloScript, 'r') as file :
         filedata = file.read()
 
@@ -72,5 +78,6 @@ def executarProgramaSAS(localProgramaSAS):
 criarPastaRotina()
 criarArquivoConfiguracao()
 lerArquivoConfig()
+criarArquivoModeloVBS()
 executarProgramaSAS(r"C:\Users\llozano\Desktop\asd.txt")
 #shell.Run(r"cmd /K C:\Windows\SysWOW64\cscript.exe C:\Users\llozano\Desktop\vb.vbs")
