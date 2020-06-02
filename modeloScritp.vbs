@@ -44,7 +44,7 @@ For n=0 to (sasProgram.Results.Count -1)
 ' Listing type is 7
 If sasProgram.Results.Item(n).Type = 7 Then
 ' Save the listing file to LOCAL disk
-sasProgram.Results.Item(n).SaveAs "[local_log_sas_lst]"
+sasProgram.Results.Item(n).SaveAs "[local_log_sas]"
 End If
 Next
 app.Quit
