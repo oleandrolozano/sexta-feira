@@ -9,17 +9,12 @@ from watchdog.events import PatternMatchingEventHandler
 from colorama import Fore
 from colorama import Style
 
-shell = win32com.client.Dispatch("WScript.Shell")
+from colorama import init
+from termcolor import colored
 
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+shell = win32com.client.Dispatch("WScript.Shell")
+# use Colorama to make Termcolor work on Windows too
+init()
 
 
 def criarPastaRotina():
@@ -41,11 +36,6 @@ def criarArquivoConfiguracao():
     Config = configparser.ConfigParser()
     if not os.path.exists(nomeArquivo):
         cfgfile = open(nomeArquivo,'w')
-        #Config.add_section('SEXTA_FEIRA')
-        #Config.set('p_emissao','execucao_habilitada', 'S')
-        #Config.set('p_emissao','local_arquivo',r'C:\Users\llozano\Desktop\asd.txt')
-        #Config.set('p_emissao','proxima_execucao',r'30/05/2020 12:00:00')
-        
         Config.write(cfgfile)
         cfgfile.close()
 
@@ -58,30 +48,39 @@ def criarArquivoModeloVBS():
         f.write(r.text)
         f.close()
 
-def executarProgramaSAS(localProgramaSAS):
-    print("Programa: [" + localProgramaSAS + "] em execução...")   
-    localArquivosLog = os.path.expanduser('~') + "\\Documents\\rotina\\logs"
-    modeloScript = os.path.expanduser('~') + "\\Documents\\rotina\\temp\\modeloScritp.vbs"
-    arquivoTemporarioDeExecucao =  os.path.expanduser('~') + "\\Documents\\rotina\\temp\\tempVB.vbs"
+def executarProgramaSAS(localProgramaSAS, nomeDoArquivo):
+    if os.path.exists(localProgramaSAS):
+        print(colored("Programa: [" + localProgramaSAS + "] em execução...", 'green'))
+        #print("Programa: [" + localProgramaSAS + "] em execução...")   
+        localArquivosLog = os.path.expanduser('~') + "\\Documents\\rotina\\logs\\" + nomeDoArquivo + ".log"
+        modeloScript = os.path.expanduser('~') + "\\Documents\\rotina\\temp\\modeloScritp.vbs"
+        arquivoTemporarioDeExecucao =  os.path.expanduser('~') + "\\Documents\\rotina\\temp\\tempVB.vbs"
 
-    try:
-        os.remove(arquivoTemporarioDeExecucao)
-    except OSError as e:  ## if failed, report it back to the user ##
-        print ("Error: %s - %s." % (e.filename, e.strerror))
 
-    # Read in the file
-    with open(modeloScript, 'r') as file :
-        filedata = file.read()
+        try:
+            os.remove(arquivoTemporarioDeExecucao)
+        except OSError as e:  ## if failed, report it back to the user ##
+            print ("Error: %s - %s." % (e.filename, e.strerror))
 
-    # Replace the target string
-        filedata = filedata.replace("[local_arquivo_sas]", localProgramaSAS)
-        filedata = filedata.replace("[local_log_sas]", localArquivosLog)
+        # Read in the file
+        with open(modeloScript, 'r') as file :
+            filedata = file.read()
 
-    # Write the file out again
-    with open(arquivoTemporarioDeExecucao, 'w') as file:
-        file.write(filedata)
+        # Replace the target string
+            filedata = filedata.replace("[local_arquivo_sas]", localProgramaSAS)
+            filedata = filedata.replace("[local_log_sas]", localArquivosLog)
 
-    shell.Run(r"cmd /K C:\Windows\SysWOW64\cscript.exe " + arquivoTemporarioDeExecucao )
+        # Write the file out again
+        with open(arquivoTemporarioDeExecucao, 'w') as file:
+            file.write(filedata)
+
+        shell.Run(r"cmd /K C:\Windows\SysWOW64\cscript.exe " + arquivoTemporarioDeExecucao )
+    else:
+        # Caso o arquivo sas nao exista
+        print(colored("Programa: [" + localProgramaSAS + "] não localizado...", 'red'))
+        #print("Programa: [" + localProgramaSAS + "] não localizado...")   
+        
+
 
 def executarProgramasCadastrados():
     arquivoConfig = os.path.expanduser('~') + "\\Documents\\rotina\\config.ini"
@@ -110,7 +109,7 @@ def executarProgramasCadastrados():
                 if isinstance(data_execucao, datetime):
                     agora = datetime.now()
                     if agora > data_execucao and execucao_habilitada == "S":                                          
-                        executarProgramaSAS(local_arquivo)
+                        executarProgramaSAS(local_arquivo, each_section)
                         atualizarProximaExecucao(config, arquivoConfig,each_section,data_execucao,recorrencia, tempo)     
         
  
@@ -125,8 +124,8 @@ def atualizarProximaExecucao(config, localArquivo_ini, secao_ini, data_atual, ti
         proxima_execucao = data_atual + timedelta(minutes=int(tempo))
         proxima_execucao_str = proxima_execucao.strftime(r"%d/%m/%Y, %H:%M:%S")
     
-
-    print("Programa: [" + secao_ini +  "] atualizado para: '" + proxima_execucao_str + "'")
+    print(colored("Rotina: [" + secao_ini +  "] atualizada para: '" + proxima_execucao_str + "'", 'cyan'))
+    #print("Rotina: [" + secao_ini +  "] atualizado para: '" + proxima_execucao_str + "'")
     
     with open(localArquivo_ini, 'w') as configfile:        
         config.set(secao_ini, "proxima_execucao", proxima_execucao_str)
@@ -147,6 +146,24 @@ def criarArquivoConfiguracaoTeste():
     Config.write(cfgfile)
     cfgfile.close()
 
+def cadastrarRotina(nomePrograma, localArquivo, horario_execucao, recorrencia, tempo):
+    now = datetime.now()
+    dt_string = now.strftime(r"%d/%m/%Y, ")
+    nomeArquivo = os.path.expanduser('~') + "\\Documents\\rotina\\config.ini"
+    Config = configparser.ConfigParser()
+    cfgfile = open(nomeArquivo,'a')
+    Config.add_section(nomePrograma)
+    Config.set(nomePrograma,'execucao_habilitada', 'S')
+    Config.set(nomePrograma,'local_arquivo',localArquivo)
+    Config.set(nomePrograma,'proxima_execucao',dt_string + horario_execucao)        
+    Config.set(nomePrograma,'recorrencia',recorrencia)        
+    Config.set(nomePrograma,'tempo',tempo)        
+    Config.write(cfgfile)
+    cfgfile.close()
+    print(colored("Rotina: [" + nomePrograma +  "] cadastrado com sucesso...", 'cyan'))
+    time.sleep(3)
+    
+    
 
 def lerArquivoConfig():
     nomeArquivo = os.path.expanduser('~') + "\\Documents\\rotina\\config.ini"
@@ -157,19 +174,6 @@ def lerArquivoConfig():
     age = settings.get('p_emissao', 'local_arquivo')
     print(age)
 
-def on_created(event):
-    print(f"hey, {event.src_path} has been created!")
-
-
-def on_deleted(event):
-    print(f"what the f**k! Someone deleted {event.src_path}!")
-
-def on_modified(event):
-    print(f"hey buddy, {event.src_path} has been modified")
-
-def on_moved(event):
-    print(f"ok ok ok, someone moved {event.src_path} to {event.dest_path}")
-
 def existeErroArquivoLog(localArquivo):
     file = open(localArquivo)
     print(file.read())
@@ -179,52 +183,106 @@ def existeErroArquivoLog(localArquivo):
     else:
         return False
 
-if __name__ == "__main__":
-    patterns = "*"
-    ignore_patterns = ""
-    ignore_directories = False
-    case_sensitive = True
-    my_event_handler = PatternMatchingEventHandler(patterns, ignore_patterns, ignore_directories, case_sensitive)
+def isTimeFormat(input):
+    try:
+        time.strptime(input, '%H:%M:%S')
+        return True
+    except ValueError:
+        return False
 
-my_event_handler.on_created = on_created
-my_event_handler.on_deleted = on_deleted
-my_event_handler.on_modified = on_modified
-my_event_handler.on_moved = on_moved
-
-
-path = "."
-go_recursively = True
-my_observer = Observer()
-my_observer.schedule(my_event_handler, path, recursive=go_recursively)
-my_observer.start()
-
-'''
-try:
-    while True:
-        time.sleep(1)
-except KeyboardInterrupt:
-    my_observer.stop()
-    my_observer.join()
-'''
-
-
-
-try:
-    
+def main():
+    os.system("cls") # Windows
     print("Sexta-Feira: Em execução...")
-    while True:
-        criarPastaRotina() 
-        criarArquivoConfiguracao()
-        #lerArquivoConfig()
-        criarArquivoModeloVBS()
-        #executarProgramaSAS(r"C:\Users\llozano\Desktop\asd.txt")
-        #criarArquivoConfiguracaoTeste()
-        executarProgramasCadastrados()
-        #shell.Run(r"cmd /K C:\Windows\SysWOW64\cscript.exe C:\Users\llozano\Desktop\vb.vbs")
+    choice ='0'
+    while choice =='0':
+        print("[1] Executar Rotinas Automáticas")
+        print("[2] Cadastrar uma nova rotina")
+        print("[9] Sair")
+        
+        choice = input ("Escolha uma opção: ")
 
-        time.sleep(1)
-except KeyboardInterrupt:
-        my_observer.stop()
-        my_observer.join()
-        print("Adeus!. By Sexta.")
+        if choice == "1":
+            #print("Executando rotinas...Pressione 9 para sair ao Menu...")
+            print(colored("Executando rotinas...Pressione [9] para sair...", 'blue'))
+            try:                
+                
+                while True:
+                    criarPastaRotina() 
+                    criarArquivoConfiguracao()
+                    #lerArquivoConfig()
+                    criarArquivoModeloVBS()
+                    #executarProgramaSAS(r"C:\Users\llozano\Desktop\asd.txt")
+                    #criarArquivoConfiguracaoTeste()
+                    executarProgramasCadastrados()
+                    #shell.Run(r"cmd /K C:\Windows\SysWOW64\cscript.exe C:\Users\llozano\Desktop\vb.vbs")
+
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                    print("Adeus!. By Sexta.")
+            
+        elif choice == "2":
+            menu_criar_programa()
+        elif choice == "9":
+            break
+        else:
+            print("Opção inválida...")
+            main()
+
+def menu_criar_programa():
+    os.system("cls") # Windows
+    print("Casdastro de nova rotina")
+    choice ='0'
+    while choice =='0':
+        choice = input ("Digite 9 para voltar ou Enter para continuar... ")
+        if choice == "9":
+            main()
+            break
+
+        local_arquivo = input ("Insira o nome do arquivo *.sas:")
+
+        if not os.path.exists(local_arquivo):
+            print(colored("Local do arquivo inválido...", 'red'))
+            main()
+            break
+
+        nome_programa = input ("De um nome ao programa: ")
+
+        horario_execucao = input ("Hora da execução: (05:00:00) por exemplo ")
+        if not isTimeFormat(horario_execucao):
+            print(colored("Horário invalido...", 'red'))
+            main()
+            break
+        tempo = ""
+        recorrencia = input ("[1] a cada X dias ou [2] a cada X minutos: (Escolha uma opção) ")
+        if recorrencia == "1":
+            tempo = input ("De quantos em quantos dias: ")
+            if not tempo.isdigit():
+                print(colored("Dias invalidos...", 'red'))
+                main()
+                break
+            recorrencia = "dia"
+        elif recorrencia == "2":
+            tempo = input ("De quantos em quantos minutos: ")
+            if not tempo.isdigit():
+                print(colored("Numeros invalidos...", 'red'))
+                main()
+                break
+            recorrencia = "minuto"
+        else:
+            print(colored("Recorrencia invalida...", 'red'))
+            main()
+            break
+
+        cadastrarRotina(nome_programa, local_arquivo, horario_execucao, recorrencia, tempo)
+        main()
+        break
+
+def menu_sair():
+    print("Saindo...")
+
+
+
+
+
+main()
 
