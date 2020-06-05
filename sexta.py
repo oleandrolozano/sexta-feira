@@ -24,12 +24,16 @@ def criarPastaRotina():
     pastaTemp = pastaRotina + "\\temp"
     if not os.path.exists(pastaRotina):
         os.makedirs(pastaRotina)
+        print(colored("Sexta-Feira: [" + pastaRotina + "] criado com sucesso...", 'cyan'))
     if not os.path.exists(pastaLog):
         os.makedirs(pastaLog)
+        print(colored("Sexta-Feira: [" + pastaLog + "] criado com sucesso...", 'cyan'))
     if not os.path.exists(pastaCodigos):
         os.makedirs(pastaCodigos)
+        print(colored("Sexta-Feira: [" + pastaCodigos + "] criado com sucesso...", 'cyan'))
     if not os.path.exists(pastaTemp):
         os.makedirs(pastaTemp)
+        print(colored("Sexta-Feira: [" + pastaTemp + "] criado com sucesso...", 'cyan'))
 
 def criarArquivoConfiguracao():
     nomeArquivo = os.path.expanduser('~') + "\\Documents\\rotina\\config.ini"
@@ -38,6 +42,7 @@ def criarArquivoConfiguracao():
         cfgfile = open(nomeArquivo,'w')
         Config.write(cfgfile)
         cfgfile.close()
+        print(colored("Sexta-Feira: [" + nomeArquivo + "] criado com sucesso...", 'cyan'))
 
 def criarArquivoModeloVBS():
     modeloScript = os.path.expanduser('~') + "\\Documents\\rotina\\temp\\modeloScritp.vbs"
@@ -47,6 +52,7 @@ def criarArquivoModeloVBS():
         f = open(modeloScript, "w")
         f.write(r.text)
         f.close()
+        print(colored("Sexta-Feira: [" + modeloScript + "] criado com sucesso...", 'cyan'))
 
 def executarProgramaSAS(localProgramaSAS, nomeDoArquivo):
     if os.path.exists(localProgramaSAS):
@@ -83,6 +89,7 @@ def executarProgramaSAS(localProgramaSAS, nomeDoArquivo):
 
 
 def executarProgramasCadastrados():
+    
     arquivoConfig = os.path.expanduser('~') + "\\Documents\\rotina\\config.ini"
     config = configparser.ConfigParser()
     config.read(arquivoConfig)
@@ -93,6 +100,8 @@ def executarProgramasCadastrados():
         local_arquivo = ""
         tempo = ""
         data_execucao = ""
+        status_execucao = ""
+        data_inicio_execucao = ""
         for (each_key, each_val) in config.items(each_section):
             if each_key == "proxima_execucao":
                 data_execucao = datetime.strptime(each_val, r"%d/%m/%Y, %H:%M:%S")
@@ -104,31 +113,63 @@ def executarProgramasCadastrados():
                 recorrencia = each_val
             if each_key == "tempo":
                 tempo = each_val 
+            if each_key == "status_execucao":
+                status_execucao = each_val 
+            if each_key == "data_inicio_execucao":
+                data_inicio_execucao = datetime.strptime(each_val, r"%d/%m/%Y, %H:%M:%S")
+
+                
             
-            if data_execucao != ""  and local_arquivo != "" and execucao_habilitada != "" and recorrencia != "" and tempo != "":
-                if isinstance(data_execucao, datetime):
-                    agora = datetime.now()
-                    if agora > data_execucao and execucao_habilitada == "S":                                          
-                        executarProgramaSAS(local_arquivo, each_section)
-                        atualizarProximaExecucao(config, arquivoConfig,each_section,data_execucao,recorrencia, tempo)     
-        
+            if status_execucao == "0":#Dormindo 
+                if data_execucao != ""  and local_arquivo != "" and execucao_habilitada != "" and recorrencia != "" and tempo != "" and data_inicio_execucao != "":
+                    if isinstance(data_execucao, datetime):
+                        agora = datetime.now()
+                        if agora > data_execucao and execucao_habilitada == "S":                                          
+                            executarProgramaSAS(local_arquivo, each_section)
+                            atualizarProximaExecucao(config, arquivoConfig,each_section,data_execucao,recorrencia, tempo)   
+
+            elif status_execucao == "1":#Em Execução
+                if data_inicio_execucao != "" and local_arquivo != "":
+                    atualizarStatusExecucao(config, arquivoConfig,each_section,data_inicio_execucao, local_arquivo)
  
+ 
+def atualizarStatusExecucao(config, localArquivo_ini, secao_ini, data_inicio_execucao, local_arquivo):
+    
+    pastaArquivoLog = os.path.expanduser('~') + "\\Documents\\rotina\\logs\\"
+    localArquivoLog = pastaArquivoLog + secao_ini + ".log"
+
+    if os.path.exists(localArquivoLog) and isinstance(data_inicio_execucao, datetime):
+        if modification_date(localArquivoLog) > data_inicio_execucao:
+            with open(localArquivo_ini, 'w') as configfile:  
+                
+                if existeErro(localArquivoLog):
+                    now = datetime.now()
+                    print(colored("Programa: [" + secao_ini + "] finalizado com erro...Executando novamente...", 'red'))
+                    executarProgramaSAS(local_arquivo, secao_ini)
+                    config.set(secao_ini, "data_inicio_execucao", now.strftime(r"%d/%m/%Y, %H:%M:%S"))
+                    config.set(secao_ini, "status_execucao", "1")
+                else:
+                    print(colored("Programa: [" + secao_ini + "] finalizado com sucesso...", 'green'))
+                    config.set(secao_ini, "status_execucao", "0")
+                config.write(configfile)
+
 def atualizarProximaExecucao(config, localArquivo_ini, secao_ini, data_atual, tipo_recorrencia, tempo):
-       
+    now = datetime.now()
     proxima_execucao = data_atual
     proxima_execucao_str = "1"
     if tipo_recorrencia == "dia":
         proxima_execucao = data_atual + timedelta(days=int(tempo))
         proxima_execucao_str = proxima_execucao.strftime(r"%d/%m/%Y, %H:%M:%S")
     if tipo_recorrencia == "minuto":
-        proxima_execucao = data_atual + timedelta(minutes=int(tempo))
+        proxima_execucao = now + timedelta(minutes=int(tempo))
         proxima_execucao_str = proxima_execucao.strftime(r"%d/%m/%Y, %H:%M:%S")
     
     print(colored("Rotina: [" + secao_ini +  "] atualizada para: '" + proxima_execucao_str + "'", 'cyan'))
-    #print("Rotina: [" + secao_ini +  "] atualizado para: '" + proxima_execucao_str + "'")
     
     with open(localArquivo_ini, 'w') as configfile:        
         config.set(secao_ini, "proxima_execucao", proxima_execucao_str)
+        config.set(secao_ini, "data_inicio_execucao", now.strftime(r"%d/%m/%Y, %H:%M:%S"))
+        config.set(secao_ini, "status_execucao", "1")
         config.write(configfile)
         
 
@@ -157,7 +198,9 @@ def cadastrarRotina(nomePrograma, localArquivo, horario_execucao, recorrencia, t
     Config.set(nomePrograma,'local_arquivo',localArquivo)
     Config.set(nomePrograma,'proxima_execucao',dt_string + horario_execucao)        
     Config.set(nomePrograma,'recorrencia',recorrencia)        
-    Config.set(nomePrograma,'tempo',tempo)        
+    Config.set(nomePrograma,'tempo',tempo)
+    Config.set(nomePrograma,'data_inicio_execucao',dt_string + horario_execucao)
+    Config.set(nomePrograma,'status_execucao',"0")
     Config.write(cfgfile)
     cfgfile.close()
     print(colored("Rotina: [" + nomePrograma +  "] cadastrado com sucesso...", 'cyan'))
@@ -165,23 +208,7 @@ def cadastrarRotina(nomePrograma, localArquivo, horario_execucao, recorrencia, t
     
     
 
-def lerArquivoConfig():
-    nomeArquivo = os.path.expanduser('~') + "\\Documents\\rotina\\config.ini"
-    settings = configparser.ConfigParser()
-    settings._interpolation = configparser.ExtendedInterpolation()
-    settings.read(nomeArquivo)
-    settings.sections()
-    age = settings.get('p_emissao', 'local_arquivo')
-    print(age)
 
-def existeErroArquivoLog(localArquivo):
-    file = open(localArquivo)
-    print(file.read())
-    search_word = input("ERROR:")
-    if(search_word == file):
-        return True
-    else:
-        return False
 
 def isTimeFormat(input):
     try:
@@ -192,6 +219,10 @@ def isTimeFormat(input):
 
 def main():
     os.system("cls") # Windows
+    criarPastaRotina() 
+    criarArquivoConfiguracao()
+    criarArquivoModeloVBS()
+    
     print("Sexta-Feira: Em execução...")
     choice ='0'
     while choice =='0':
@@ -203,22 +234,17 @@ def main():
 
         if choice == "1":
             #print("Executando rotinas...Pressione 9 para sair ao Menu...")
-            print(colored("Executando rotinas...Pressione [9] para sair...", 'blue'))
+            print(colored("Executando rotinas...Pressione [CTRL + C] no terminal para sair...", 'blue'))
             try:                
                 
                 while True:
                     criarPastaRotina() 
                     criarArquivoConfiguracao()
-                    #lerArquivoConfig()
                     criarArquivoModeloVBS()
-                    #executarProgramaSAS(r"C:\Users\llozano\Desktop\asd.txt")
-                    #criarArquivoConfiguracaoTeste()
                     executarProgramasCadastrados()
-                    #shell.Run(r"cmd /K C:\Windows\SysWOW64\cscript.exe C:\Users\llozano\Desktop\vb.vbs")
-
-                    time.sleep(1)
+                    time.sleep(3)
             except KeyboardInterrupt:
-                    print("Adeus!. By Sexta.")
+                    print(colored("Adeus!. By Sexta.", 'yellow'))
             
         elif choice == "2":
             menu_criar_programa()
@@ -281,8 +307,35 @@ def menu_sair():
     print("Saindo...")
 
 
+def modification_date(filename):
+    t = os.path.getmtime(filename)
+    horarioModificacao = datetime.fromtimestamp(t)
+    return horarioModificacao
+
+def existeErro(filename):
+    f = open(filename, "r")
+    words = ""
+    for line in f:    
+        words = line.split()
+        if len(words) > 0:
+            if words[0] == 'ERROR:':
+                return True
+                
+
+def listarArquivosPorExtencao(folderDir, extencao):
+    arquivos = []
+    for file in os.listdir(folderDir):
+        if file.endswith("." + extencao):
+            arquivos.append(os.path.join(r"C:\Users\llozano\Documents", file))
+
+    return arquivos
 
 
 
 main()
+#existeErro(r"C:\Users\llozano\Documents\p_especiais_721.log")
+
+
+
+
 
