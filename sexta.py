@@ -3,6 +3,7 @@ import configparser
 import sys, win32com.client
 import requests
 import time
+import shutil
 from datetime import datetime, timedelta
 from watchdog.observers import Observer
 from watchdog.events import PatternMatchingEventHandler
@@ -54,6 +55,13 @@ def criarArquivoModeloVBS():
         f.close()
         print(colored("Sexta-Feira: [" + modeloScript + "] criado com sucesso...", 'cyan'))
 
+def criarArquivoModeloVBSv2():
+    modeloScript = os.path.expanduser('~') + "\\Documents\\rotina\\temp\\modeloScritp.vbs"
+    if not os.path.exists(modeloScript):
+        currentDirectory = os.getcwd()
+        shutil.copyfile(currentDirectory + "\\modeloScritp.vbs", modeloScript)
+        print(colored("Sexta-Feira: [" + modeloScript + "] criado com sucesso...", 'cyan'))
+
 def executarProgramaSAS(localProgramaSAS, nomeDoArquivo):
     if os.path.exists(localProgramaSAS):
         print(colored("Programa: [" + localProgramaSAS + "] em execução...", 'green'))
@@ -80,7 +88,8 @@ def executarProgramaSAS(localProgramaSAS, nomeDoArquivo):
         with open(arquivoTemporarioDeExecucao, 'w') as file:
             file.write(filedata)
 
-        shell.Run(r"cmd /K C:\Windows\SysWOW64\cscript.exe " + arquivoTemporarioDeExecucao )
+        #shell.Run(r"cmd /K C:\Windows\SysWOW64\cscript.exe " + arquivoTemporarioDeExecucao )
+        shell.Run(r"C:\Windows\SysWOW64\cscript.exe " + arquivoTemporarioDeExecucao )
     else:
         # Caso o arquivo sas nao exista
         print(colored("Programa: [" + localProgramaSAS + "] não localizado...", 'red'))
@@ -132,6 +141,16 @@ def executarProgramasCadastrados():
                 if data_inicio_execucao != "" and local_arquivo != "":
                     atualizarStatusExecucao(config, arquivoConfig,each_section,data_inicio_execucao, local_arquivo)
  
+def mudarStatusExecucoesEmAndamentoParaZero():
+    arquivoConfig = os.path.expanduser('~') + "\\Documents\\rotina\\config.ini"
+    config = configparser.ConfigParser()
+    config.read(arquivoConfig)
+    with open(arquivoConfig, 'w') as configfile: 
+        for each_section in config.sections():
+            config.set(each_section, "status_execucao", "0")
+        config.write(configfile)
+
+
  
 def atualizarStatusExecucao(config, localArquivo_ini, secao_ini, data_inicio_execucao, local_arquivo):
     
@@ -221,9 +240,10 @@ def main():
     os.system("cls") # Windows
     criarPastaRotina() 
     criarArquivoConfiguracao()
-    criarArquivoModeloVBS()
+    #criarArquivoModeloVBS()
+    criarArquivoModeloVBSv2()
     
-    print("Sexta-Feira: Em execução...")
+    print(colored("Sexta-Feira: Em execução...", 'yellow'))
     choice ='0'
     while choice =='0':
         print("[1] Executar Rotinas Automáticas")
@@ -233,14 +253,11 @@ def main():
         choice = input ("Escolha uma opção: ")
 
         if choice == "1":
-            #print("Executando rotinas...Pressione 9 para sair ao Menu...")
             print(colored("Executando rotinas...Pressione [CTRL + C] no terminal para sair...", 'blue'))
+            mudarStatusExecucoesEmAndamentoParaZero()
             try:                
                 
-                while True:
-                    criarPastaRotina() 
-                    criarArquivoConfiguracao()
-                    criarArquivoModeloVBS()
+                while True:                    
                     executarProgramasCadastrados()
                     time.sleep(3)
             except KeyboardInterrupt:
@@ -331,9 +348,7 @@ def listarArquivosPorExtencao(folderDir, extencao):
     return arquivos
 
 
-
 main()
-#existeErro(r"C:\Users\llozano\Documents\p_especiais_721.log")
 
 
 
